@@ -85,3 +85,4 @@ Once both the backend and frontend are running, you can open your browser to the
 - **Default User Roles:** New users registered through the app will have the `USER` role. To create an `ADMIN` user, you can manually change the role in the database.
 - **API Endpoints:** The backend API endpoints are documented in the `PROGRESS.md` file.
 "# room-booking" 
+"# room-booking" 
