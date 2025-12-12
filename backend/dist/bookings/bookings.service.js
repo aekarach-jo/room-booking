@@ -27,18 +27,44 @@ let BookingsService = class BookingsService {
         if (!room.isActive) {
             throw new common_1.ConflictException('Room is not available for booking');
         }
+        const bookingDate = new Date(date);
+        bookingDate.setHours(0, 0, 0, 0);
+        const nextDay = new Date(bookingDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const newStartTime = new Date(startTime);
+        const newEndTime = new Date(endTime);
         const overlappingBookings = await this.prisma.booking.findMany({
             where: {
                 roomId,
-                date: new Date(date),
+                date: {
+                    gte: bookingDate,
+                    lt: nextDay,
+                },
                 status: { in: [client_1.BookingStatus.PENDING, client_1.BookingStatus.APPROVED] },
-                OR: [
-                    { startTime: { lt: new Date(endTime) }, endTime: { gt: new Date(startTime) } },
+                AND: [
+                    { startTime: { lt: newEndTime } },
+                    { endTime: { gt: newStartTime } },
                 ],
+            },
+            include: {
+                user: {
+                    select: {
+                        fullName: true,
+                    },
+                },
             },
         });
         if (overlappingBookings.length > 0) {
-            throw new common_1.ConflictException('Room is already booked for the selected time');
+            const conflictInfo = overlappingBookings[0];
+            const conflictStart = new Date(conflictInfo.startTime).toLocaleTimeString('th-TH', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const conflictEnd = new Date(conflictInfo.endTime).toLocaleTimeString('th-TH', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            throw new common_1.ConflictException(`ห้องถูกจองไปแล้วในช่วงเวลา ${conflictStart} - ${conflictEnd} โดย ${conflictInfo.user.fullName}`);
         }
         const initialStatus = user.role === roles_enum_1.Role.TEACHER ? client_1.BookingStatus.APPROVED : client_1.BookingStatus.PENDING;
         return this.prisma.booking.create({

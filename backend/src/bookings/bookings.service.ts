@@ -19,20 +19,60 @@ export class BookingsService {
       throw new ConflictException('Room is not available for booking');
     }
 
-    // Check for double bookings
+    // Check for double bookings - prevent overlapping time slots
+    // Time overlap occurs when:
+    // 1. New booking starts before existing ends AND new booking ends after existing starts
+    // This catches all overlap scenarios including:
+    //    - Exact same time
+    //    - New booking starts during existing
+    //    - New booking ends during existing
+    //    - New booking completely contains existing
+    //    - Existing completely contains new booking
+    const bookingDate = new Date(date);
+    bookingDate.setHours(0, 0, 0, 0); // Normalize to start of day for date comparison
+    
+    const nextDay = new Date(bookingDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    const newStartTime = new Date(startTime);
+    const newEndTime = new Date(endTime);
+
     const overlappingBookings = await this.prisma.booking.findMany({
       where: {
         roomId,
-        date: new Date(date),
+        date: {
+          gte: bookingDate,
+          lt: nextDay,
+        },
         status: { in: [BookingStatus.PENDING, BookingStatus.APPROVED] },
-        OR: [
-          { startTime: { lt: new Date(endTime) }, endTime: { gt: new Date(startTime) } },
+        AND: [
+          { startTime: { lt: newEndTime } },
+          { endTime: { gt: newStartTime } },
         ],
+      },
+      include: {
+        user: {
+          select: {
+            fullName: true,
+          },
+        },
       },
     });
 
     if (overlappingBookings.length > 0) {
-      throw new ConflictException('Room is already booked for the selected time');
+      const conflictInfo = overlappingBookings[0];
+      const conflictStart = new Date(conflictInfo.startTime).toLocaleTimeString('th-TH', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      const conflictEnd = new Date(conflictInfo.endTime).toLocaleTimeString('th-TH', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      
+      throw new ConflictException(
+        `ห้องถูกจองไปแล้วในช่วงเวลา ${conflictStart} - ${conflictEnd} โดย ${conflictInfo.user.fullName}`
+      );
     }
 
     const initialStatus = user.role === Role.TEACHER ? BookingStatus.APPROVED : BookingStatus.PENDING;

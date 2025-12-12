@@ -1,37 +1,27 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-
-interface SpecialDate {
-  id: string;
-  name: string;
-  date: string;
-  type: 'HOLIDAY' | 'EXAM' | 'EVENT';
-  description?: string;
-  semesterId?: string;
-}
-
-interface Semester {
-  id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  isActive: boolean;
-}
-
-const API_URL = 'http://localhost:3000';
+import {
+  specialDateService,
+  SpecialDate,
+  SpecialDateType,
+  CreateSpecialDateDto,
+} from '../services/special-date.service';
+import { semesterService, Semester } from '../services/semester.service';
+import { Star, Plus, Trash2, AlertCircle, Calendar } from 'lucide-react';
 
 const SpecialDatesPage = () => {
   const [specialDates, setSpecialDates] = useState<SpecialDate[]>([]);
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CreateSpecialDateDto>({
     name: '',
     date: '',
-    type: 'HOLIDAY' as 'HOLIDAY' | 'EXAM' | 'EVENT',
+    type: SpecialDateType.HOLIDAY,
     description: '',
     semesterId: '',
   });
@@ -43,15 +33,12 @@ const SpecialDatesPage = () => {
 
   const fetchSpecialDates = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        `${API_URL}/special-dates?month=${selectedMonth}&year=${selectedYear}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setSpecialDates(response.data);
-    } catch (error) {
-      console.error('Error fetching special dates:', error);
-      alert('ไม่สามารถโหลดข้อมูลวันพิเศษได้');
+      setLoading(true);
+      const data = await specialDateService.getByMonth(selectedMonth, selectedYear);
+      setSpecialDates(data);
+      setError('');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'ไม่สามารถดึงข้อมูลวันพิเศษได้');
     } finally {
       setLoading(false);
     }
@@ -59,109 +46,144 @@ const SpecialDatesPage = () => {
 
   const fetchSemesters = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/semesters`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setSemesters(response.data);
-    } catch (error) {
-      console.error('Error fetching semesters:', error);
+      const data = await semesterService.getAll();
+      setSemesters(data);
+    } catch (err: any) {
+      console.error('Error fetching semesters:', err);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/special-dates`, formData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      alert('เพิ่มวันพิเศษสำเร็จ');
+      if (editingId) {
+        await specialDateService.update(editingId, formData);
+      } else {
+        await specialDateService.create(formData);
+      }
+      
       setShowForm(false);
+      setEditingId(null);
       setFormData({
         name: '',
         date: '',
-        type: 'HOLIDAY',
+        type: SpecialDateType.HOLIDAY,
         description: '',
         semesterId: '',
       });
       fetchSpecialDates();
-    } catch (error) {
-      console.error('Error creating special date:', error);
-      alert('ไม่สามารถเพิ่มวันพิเศษได้');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'เกิดข้อผิดพลาด');
     }
+  };
+
+  const handleEdit = (specialDate: SpecialDate) => {
+    setEditingId(specialDate.id);
+    setFormData({
+      name: specialDate.name,
+      date: specialDate.date.split('T')[0],
+      type: specialDate.type,
+      description: specialDate.description,
+      semesterId: specialDate.semesterId,
+    });
+    setShowForm(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('ต้องการลบวันพิเศษนี้หรือไม่?')) return;
+    if (!confirm('คุณต้องการลบวันพิเศษนี้หรือไม่?')) return;
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`${API_URL}/special-dates/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      alert('ลบวันพิเศษสำเร็จ');
+      await specialDateService.delete(id);
       fetchSpecialDates();
-    } catch (error) {
-      console.error('Error deleting special date:', error);
-      alert('ไม่สามารถลบวันพิเศษได้');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'ไม่สามารถลบวันพิเศษได้');
     }
   };
 
-  const getTypeLabel = (type: string) => {
+  const handleCancel = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setFormData({
+      name: '',
+      date: '',
+      type: SpecialDateType.HOLIDAY,
+      description: '',
+      semesterId: '',
+    });
+    setError('');
+  };
+
+  const getTypeLabel = (type: SpecialDateType) => {
     switch (type) {
-      case 'HOLIDAY':
+      case SpecialDateType.HOLIDAY:
         return 'วันหยุด';
-      case 'EXAM':
+      case SpecialDateType.EXAM:
         return 'วันสอบ';
-      case 'EVENT':
+      case SpecialDateType.EVENT:
         return 'วันพิเศษ';
       default:
         return type;
     }
   };
 
-  const getTypeBadgeColor = (type: string) => {
+  const getTypeBadgeColor = (type: SpecialDateType) => {
     switch (type) {
-      case 'HOLIDAY':
-        return 'bg-red-100 text-red-800';
-      case 'EXAM':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'EVENT':
-        return 'bg-blue-100 text-blue-800';
+      case SpecialDateType.HOLIDAY:
+        return 'badge-danger';
+      case SpecialDateType.EXAM:
+        return 'badge-warning';
+      case SpecialDateType.EVENT:
+        return 'badge-info';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'badge-secondary';
     }
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-xl">กำลังโหลด...</div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">จัดการวันพิเศษ</h1>
+    <div className="container mx-auto p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Star className="w-8 h-8 text-primary" />
+          <div>
+            <h1 className="text-3xl font-bold">จัดการวันพิเศษ</h1>
+            <p className="text-sm text-muted-foreground">จัดการวันหยุด วันสอบ และวันพิเศษต่างๆ</p>
+          </div>
+        </div>
         <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          onClick={() => setShowForm(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
         >
-          {showForm ? 'ปิด' : '+ เพิ่มวันพิเศษ'}
+          <Plus className="w-4 h-4" />
+          เพิ่มวันพิเศษ
         </button>
       </div>
 
+      {error && (
+        <div className="bg-destructive/10 text-destructive px-4 py-3 rounded-md mb-4 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5" />
+          {error}
+        </div>
+      )}
+
       {/* Filter */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+      <div className="bg-card border rounded-lg p-4 mb-6 shadow-sm">
         <div className="flex gap-4 items-center">
-          <label className="font-semibold">เลือกเดือน/ปี:</label>
+          <Calendar className="w-5 h-5 text-muted-foreground" />
+          <label className="font-semibold text-sm">เลือกเดือน/ปี:</label>
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-            className="border rounded px-3 py-2"
+            className="input"
           >
             {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
               <option key={month} value={month}>
@@ -174,7 +196,7 @@ const SpecialDatesPage = () => {
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-            className="border rounded px-3 py-2"
+            className="input"
           >
             {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(
               (year) => (
@@ -189,57 +211,60 @@ const SpecialDatesPage = () => {
 
       {/* Form */}
       {showForm && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold mb-4">เพิ่มวันพิเศษใหม่</h2>
+        <div className="bg-card border rounded-lg p-6 mb-6 shadow-sm">
+          <h2 className="text-xl font-semibold mb-4">
+            {editingId ? 'แก้ไขวันพิเศษ' : 'เพิ่มวันพิเศษใหม่'}
+          </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">ชื่อวันพิเศษ</label>
+              <label className="block text-sm font-medium mb-1">ชื่อวันพิเศษ *</label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full border rounded px-3 py-2"
+                className="input w-full"
+                placeholder="เช่น วันหยุดกลางปี"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">วันที่</label>
+              <label className="block text-sm font-medium mb-1">วันที่ *</label>
               <input
                 type="date"
                 value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                className="w-full border rounded px-3 py-2"
+                className="input w-full"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">ประเภท</label>
+              <label className="block text-sm font-medium mb-1">ประเภท *</label>
               <select
                 value={formData.type}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    type: e.target.value as 'HOLIDAY' | 'EXAM' | 'EVENT',
+                    type: e.target.value as SpecialDateType,
                   })
                 }
-                className="w-full border rounded px-3 py-2"
+                className="input w-full"
               >
-                <option value="HOLIDAY">วันหยุด</option>
-                <option value="EXAM">วันสอบ</option>
-                <option value="EVENT">วันพิเศษ</option>
+                <option value={SpecialDateType.HOLIDAY}>วันหยุด</option>
+                <option value={SpecialDateType.EXAM}>วันสอบ</option>
+                <option value={SpecialDateType.EVENT}>วันพิเศษ</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">ภาคเรียน (ถ้ามี)</label>
               <select
-                value={formData.semesterId}
+                value={formData.semesterId || ''}
                 onChange={(e) =>
-                  setFormData({ ...formData, semesterId: e.target.value })
+                  setFormData({ ...formData, semesterId: e.target.value || undefined })
                 }
-                className="w-full border rounded px-3 py-2"
+                className="input w-full"
               >
                 <option value="">-- ไม่ระบุ --</option>
                 {semesters.map((semester) => (
@@ -253,26 +278,24 @@ const SpecialDatesPage = () => {
             <div>
               <label className="block text-sm font-medium mb-1">รายละเอียด</label>
               <textarea
-                value={formData.description}
+                value={formData.description || ''}
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
-                className="w-full border rounded px-3 py-2"
+                className="input w-full"
                 rows={3}
+                placeholder="รายละเอียดเพิ่มเติม..."
               />
             </div>
 
             <div className="flex gap-2">
-              <button
-                type="submit"
-                className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
-              >
-                บันทึก
+              <button type="submit" className="btn btn-primary">
+                {editingId ? 'บันทึก' : 'เพิ่ม'}
               </button>
               <button
                 type="button"
-                onClick={() => setShowForm(false)}
-                className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600"
+                onClick={handleCancel}
+                className="btn btn-secondary"
               >
                 ยกเลิก
               </button>
@@ -282,37 +305,38 @@ const SpecialDatesPage = () => {
       )}
 
       {/* Special Dates List */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="bg-card border rounded-lg shadow-sm overflow-hidden">
         <table className="w-full">
-          <thead className="bg-gray-50">
+          <thead className="bg-muted/50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 วันที่
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 ชื่อวันพิเศษ
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 ประเภท
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 รายละเอียด
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 จัดการ
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y">
             {specialDates.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                  ไม่มีวันพิเศษในเดือนนี้
+                <td colSpan={5} className="px-6 py-8 text-center">
+                  <Star className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">ไม่มีวันพิเศษในเดือนนี้</p>
                 </td>
               </tr>
             ) : (
               specialDates.map((date) => (
-                <tr key={date.id} className="hover:bg-gray-50">
+                <tr key={date.id} className="hover:bg-muted/20">
                   <td className="px-6 py-4 whitespace-nowrap">
                     {new Date(date.date).toLocaleDateString('th-TH', {
                       year: 'numeric',
@@ -320,26 +344,32 @@ const SpecialDatesPage = () => {
                       day: 'numeric',
                     })}
                   </td>
-                  <td className="px-6 py-4">{date.name}</td>
+                  <td className="px-6 py-4 font-medium">{date.name}</td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${getTypeBadgeColor(
-                        date.type
-                      )}`}
-                    >
+                    <span className={`badge ${getTypeBadgeColor(date.type)}`}>
                       {getTypeLabel(date.type)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
+                  <td className="px-6 py-4 text-sm text-muted-foreground max-w-xs truncate">
                     {date.description || '-'}
                   </td>
                   <td className="px-6 py-4">
-                    <button
-                      onClick={() => handleDelete(date.id)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      ลบ
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEdit(date)}
+                        className="text-primary hover:text-primary/80"
+                        title="แก้ไข"
+                      >
+                        แก้ไข
+                      </button>
+                      <button
+                        onClick={() => handleDelete(date.id)}
+                        className="text-destructive hover:text-destructive/80"
+                        title="ลบ"
+                      >
+                        ลบ
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))

@@ -13,7 +13,9 @@ const AdminRoute = () => {
     return <Navigate to="/login" replace />;
   }
   
-  if (user.role !== 'ADMIN') {
+  // Allow STAFF, DEPARTMENT_HEAD, and legacy ADMIN to access admin routes
+  const allowedRoles = ['STAFF', 'DEPARTMENT_HEAD', 'ADMIN'];
+  if (!allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />; // Or show an 'Unauthorized' page
   }
 

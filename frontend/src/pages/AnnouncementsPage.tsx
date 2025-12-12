@@ -1,63 +1,40 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-
-interface Announcement {
-  id: string;
-  title: string;
-  content: string;
-  type: 'INFO' | 'WARNING' | 'URGENT';
-  isPinned: boolean;
-  publishDate: string;
-  expiryDate?: string;
-  createdBy: string;
-  creator: {
-    fullName: string;
-  };
-}
-
-const API_URL = 'http://localhost:3000';
+import {
+  announcementService,
+  Announcement,
+  AnnouncementType,
+  CreateAnnouncementDto,
+} from '../services/announcement.service';
+import { useAuth } from '../context/AuthContext';
+import { Bell, Plus, Pin, Trash2, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 
 const AnnouncementsPage = () => {
+  const { user } = useAuth();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CreateAnnouncementDto>({
     title: '',
     content: '',
-    type: 'INFO' as 'INFO' | 'WARNING' | 'URGENT',
-    isPinned: false,
+    type: AnnouncementType.INFO,
     expiryDate: '',
   });
 
   useEffect(() => {
-    fetchCurrentUser();
     fetchAnnouncements();
   }, []);
 
-  const fetchCurrentUser = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setCurrentUser(response.data);
-    } catch (error) {
-      console.error('Error fetching current user:', error);
-    }
-  };
-
   const fetchAnnouncements = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/announcements`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setAnnouncements(response.data);
-    } catch (error) {
-      console.error('Error fetching announcements:', error);
-      alert('ไม่สามารถโหลดข้อมูลประกาศได้');
+      setLoading(true);
+      const data = await announcementService.getAll();
+      setAnnouncements(data);
+      setError('');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'ไม่สามารถดึงข้อมูลประกาศได้');
     } finally {
       setLoading(false);
     }
@@ -65,172 +42,204 @@ const AnnouncementsPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `${API_URL}/announcements`,
-        {
-          ...formData,
-          expiryDate: formData.expiryDate || undefined,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      alert('เพิ่มประกาศสำเร็จ');
+      const submitData = {
+        ...formData,
+        expiryDate: formData.expiryDate || undefined,
+      };
+
+      if (editingId) {
+        await announcementService.update(editingId, submitData);
+      } else {
+        await announcementService.create(submitData);
+      }
+      
       setShowForm(false);
+      setEditingId(null);
       setFormData({
         title: '',
         content: '',
-        type: 'INFO',
-        isPinned: false,
+        type: AnnouncementType.INFO,
         expiryDate: '',
       });
       fetchAnnouncements();
-    } catch (error: any) {
-      console.error('Error creating announcement:', error);
-      alert(error.response?.data?.message || 'ไม่สามารถเพิ่มประกาศได้');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'เกิดข้อผิดพลาด');
     }
+  };
+
+  const handleEdit = (announcement: Announcement) => {
+    setEditingId(announcement.id);
+    setFormData({
+      title: announcement.title,
+      content: announcement.content,
+      type: announcement.type,
+      expiryDate: announcement.expiryDate ? announcement.expiryDate.split('T')[0] : '',
+    });
+    setShowForm(true);
   };
 
   const handlePin = async (id: string) => {
     try {
-      const token = localStorage.getItem('token');
-      await axios.patch(`${API_URL}/announcements/${id}/pin`, null, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await announcementService.togglePin(id);
       fetchAnnouncements();
-    } catch (error) {
-      console.error('Error pinning announcement:', error);
-      alert('ไม่สามารถปักหมุดประกาศได้');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'ไม่สามารถปักหมุดประกาศได้');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('ต้องการลบประกาศนี้หรือไม่?')) return;
+    if (!confirm('คุณต้องการลบประกาศนี้หรือไม่?')) return;
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`${API_URL}/announcements/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      alert('ลบประกาศสำเร็จ');
+      await announcementService.delete(id);
       fetchAnnouncements();
-    } catch (error) {
-      console.error('Error deleting announcement:', error);
-      alert('ไม่สามารถลบประกาศได้');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'ไม่สามารถลบประกาศได้');
     }
   };
 
-  const getTypeLabel = (type: string) => {
+  const handleCancel = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setFormData({
+      title: '',
+      content: '',
+      type: AnnouncementType.INFO,
+      expiryDate: '',
+    });
+    setError('');
+  };
+
+  const getTypeLabel = (type: AnnouncementType) => {
     switch (type) {
-      case 'INFO':
+      case AnnouncementType.INFO:
         return 'ข่าวสาร';
-      case 'WARNING':
+      case AnnouncementType.WARNING:
         return 'คำเตือน';
-      case 'URGENT':
+      case AnnouncementType.URGENT:
         return 'เร่งด่วน';
       default:
         return type;
     }
   };
 
-  const getTypeBadgeColor = (type: string) => {
+  const getTypeBadgeColor = (type: AnnouncementType) => {
     switch (type) {
-      case 'INFO':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'WARNING':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'URGENT':
-        return 'bg-red-100 text-red-800 border-red-200';
+      case AnnouncementType.INFO:
+        return 'badge-info';
+      case AnnouncementType.WARNING:
+        return 'badge-warning';
+      case AnnouncementType.URGENT:
+        return 'badge-danger';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'badge-secondary';
     }
   };
 
-  const getTypeCardColor = (type: string) => {
+  const getTypeIcon = (type: AnnouncementType) => {
     switch (type) {
-      case 'INFO':
-        return 'border-l-blue-500';
-      case 'WARNING':
-        return 'border-l-yellow-500';
-      case 'URGENT':
-        return 'border-l-red-500';
+      case AnnouncementType.INFO:
+        return <Info className="w-5 h-5" />;
+      case AnnouncementType.WARNING:
+        return <AlertTriangle className="w-5 h-5" />;
+      case AnnouncementType.URGENT:
+        return <AlertCircle className="w-5 h-5" />;
       default:
-        return 'border-l-gray-500';
+        return <Bell className="w-5 h-5" />;
     }
   };
 
-  const isStaff = currentUser?.role === 'STAFF' || currentUser?.role === 'DEPARTMENT_HEAD';
+  const isStaff = user?.role === 'STAFF' || user?.role === 'DEPARTMENT_HEAD';
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-xl">กำลังโหลด...</div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">ประกาศ</h1>
+    <div className="container mx-auto p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Bell className="w-8 h-8 text-primary" />
+          <div>
+            <h1 className="text-3xl font-bold">ประกาศ</h1>
+            <p className="text-sm text-muted-foreground">ข่าวสารและประกาศสำคัญ</p>
+          </div>
+        </div>
         {isStaff && (
           <button
-            onClick={() => setShowForm(!showForm)}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
           >
-            {showForm ? 'ปิด' : '+ เพิ่มประกาศ'}
+            <Plus className="w-4 h-4" />
+            เพิ่มประกาศ
           </button>
         )}
       </div>
 
+      {error && (
+        <div className="bg-destructive/10 text-destructive px-4 py-3 rounded-md mb-4 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5" />
+          {error}
+        </div>
+      )}
+
       {/* Form */}
       {showForm && isStaff && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold mb-4">เพิ่มประกาศใหม่</h2>
+        <div className="bg-card border rounded-lg p-6 mb-6 shadow-sm">
+          <h2 className="text-xl font-semibold mb-4">
+            {editingId ? 'แก้ไขประกาศ' : 'เพิ่มประกาศใหม่'}
+          </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">หัวข้อ</label>
+              <label className="block text-sm font-medium mb-1">หัวข้อ *</label>
               <input
                 type="text"
                 value={formData.title}
                 onChange={(e) =>
                   setFormData({ ...formData, title: e.target.value })
                 }
-                className="w-full border rounded px-3 py-2"
+                className="input w-full"
+                placeholder="หัวข้อประกาศ"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">เนื้อหา</label>
+              <label className="block text-sm font-medium mb-1">เนื้อหา *</label>
               <textarea
                 value={formData.content}
                 onChange={(e) =>
                   setFormData({ ...formData, content: e.target.value })
                 }
-                className="w-full border rounded px-3 py-2"
+                className="input w-full"
                 rows={6}
+                placeholder="เนื้อหาประกาศ..."
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">ประเภท</label>
+              <label className="block text-sm font-medium mb-1">ประเภท *</label>
               <select
                 value={formData.type}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    type: e.target.value as 'INFO' | 'WARNING' | 'URGENT',
+                    type: e.target.value as AnnouncementType,
                   })
                 }
-                className="w-full border rounded px-3 py-2"
+                className="input w-full"
               >
-                <option value="INFO">ข่าวสาร</option>
-                <option value="WARNING">คำเตือน</option>
-                <option value="URGENT">เร่งด่วน</option>
+                <option value={AnnouncementType.INFO}>ข่าวสาร</option>
+                <option value={AnnouncementType.WARNING}>คำเตือน</option>
+                <option value={AnnouncementType.URGENT}>เร่งด่วน</option>
               </select>
             </div>
 
@@ -240,40 +249,22 @@ const AnnouncementsPage = () => {
               </label>
               <input
                 type="date"
-                value={formData.expiryDate}
+                value={formData.expiryDate || ''}
                 onChange={(e) =>
                   setFormData({ ...formData, expiryDate: e.target.value })
                 }
-                className="w-full border rounded px-3 py-2"
+                className="input w-full"
               />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="isPinned"
-                checked={formData.isPinned}
-                onChange={(e) =>
-                  setFormData({ ...formData, isPinned: e.target.checked })
-                }
-                className="w-4 h-4"
-              />
-              <label htmlFor="isPinned" className="text-sm font-medium">
-                ปักหมุดประกาศนี้
-              </label>
             </div>
 
             <div className="flex gap-2">
-              <button
-                type="submit"
-                className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
-              >
-                เผยแพร่
+              <button type="submit" className="btn btn-primary">
+                {editingId ? 'บันทึก' : 'เผยแพร่'}
               </button>
               <button
                 type="button"
-                onClick={() => setShowForm(false)}
-                className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600"
+                onClick={handleCancel}
+                className="btn btn-secondary"
               >
                 ยกเลิก
               </button>
@@ -285,36 +276,35 @@ const AnnouncementsPage = () => {
       {/* Announcements List */}
       <div className="space-y-4">
         {announcements.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">
-            ไม่มีประกาศในขณะนี้
+          <div className="bg-card border rounded-lg p-8 text-center">
+            <Bell className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+            <p className="text-muted-foreground">ไม่มีประกาศในขณะนี้</p>
           </div>
         ) : (
           announcements.map((announcement) => (
             <div
               key={announcement.id}
-              className={`bg-white rounded-lg shadow-md p-6 border-l-4 ${getTypeCardColor(
-                announcement.type
-              )}`}
+              className="bg-card border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="flex justify-between items-start mb-3">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h2 className="text-xl font-bold">{announcement.title}</h2>
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      {getTypeIcon(announcement.type)}
+                      <h2 className="text-xl font-semibold">{announcement.title}</h2>
+                    </div>
                     {announcement.isPinned && (
-                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
-                        📌 ปักหมุด
+                      <span className="badge badge-warning flex items-center gap-1">
+                        <Pin className="w-3 h-3" />
+                        ปักหมุด
                       </span>
                     )}
-                    <span
-                      className={`px-2 py-1 border rounded text-xs font-medium ${getTypeBadgeColor(
-                        announcement.type
-                      )}`}
-                    >
+                    <span className={`badge ${getTypeBadgeColor(announcement.type)}`}>
                       {getTypeLabel(announcement.type)}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 mb-3">
-                    โดย {announcement.creator.fullName} •{' '}
+                  <p className="text-sm text-muted-foreground mb-3">
+                    โดย {announcement.creator?.fullName || 'ไม่ระบุ'} •{' '}
                     {new Date(announcement.publishDate).toLocaleDateString(
                       'th-TH',
                       {
@@ -324,7 +314,7 @@ const AnnouncementsPage = () => {
                       }
                     )}
                     {announcement.expiryDate && (
-                      <span className="text-red-600">
+                      <span className="text-destructive">
                         {' '}
                         • หมดอายุ:{' '}
                         {new Date(announcement.expiryDate).toLocaleDateString(
@@ -338,20 +328,29 @@ const AnnouncementsPage = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handlePin(announcement.id)}
-                      className="text-yellow-600 hover:text-yellow-800 text-sm"
+                      className="btn btn-sm btn-secondary"
+                      title={announcement.isPinned ? 'เลิกปักหมุด' : 'ปักหมุด'}
                     >
-                      {announcement.isPinned ? 'เลิกปักหมุด' : 'ปักหมุด'}
+                      <Pin className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleEdit(announcement)}
+                      className="btn btn-sm btn-secondary"
+                      title="แก้ไข"
+                    >
+                      แก้ไข
                     </button>
                     <button
                       onClick={() => handleDelete(announcement.id)}
-                      className="text-red-600 hover:text-red-800 text-sm"
+                      className="btn btn-sm btn-danger"
+                      title="ลบ"
                     >
-                      ลบ
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 )}
               </div>
-              <p className="text-gray-700 whitespace-pre-wrap">
+              <p className="whitespace-pre-wrap">
                 {announcement.content}
               </p>
             </div>
