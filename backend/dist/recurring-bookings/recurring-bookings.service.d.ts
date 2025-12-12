@@ -1,0 +1,163 @@
+import { PrismaService } from '../prisma/prisma.service';
+export declare class RecurringBookingsService {
+    private prisma;
+    constructor(prisma: PrismaService);
+    create(data: any, userId: string): Promise<{
+        id: string;
+        createdAt: Date;
+        startTime: string;
+        endTime: string;
+        purpose: string;
+        roomId: string;
+        userId: string;
+        startDate: Date;
+        endDate: Date | null;
+        pattern: import(".prisma/client").$Enums.RecurringPattern;
+        daysOfWeek: import("@prisma/client/runtime/library").JsonValue | null;
+    }>;
+    generateBookings(recurringBookingId: string): Promise<number>;
+    findAll(userId?: string): Promise<({
+        user: {
+            id: string;
+            username: string;
+            fullName: string;
+            role: import(".prisma/client").$Enums.Role;
+        };
+        room: {
+            name: string;
+            id: string;
+            isActive: boolean;
+            type: import(".prisma/client").$Enums.RoomType;
+            capacity: number;
+            equipment: import("@prisma/client/runtime/library").JsonValue | null;
+            floor: number | null;
+            building: string | null;
+            description: string | null;
+            openTime: string | null;
+            closeTime: string | null;
+            maxBookingHours: number | null;
+            advanceBookingDays: number | null;
+            requireApproval: boolean;
+        };
+        bookings: {
+            id: string;
+            createdAt: Date;
+            date: Date;
+            startTime: Date;
+            endTime: Date;
+            purpose: string;
+            attendees: number;
+            status: import(".prisma/client").$Enums.BookingStatus;
+            adminNote: string | null;
+            checkInTime: Date | null;
+            checkOutTime: Date | null;
+            isNoShow: boolean;
+            updatedAt: Date;
+            roomId: string;
+            recurringBookingId: string | null;
+            userId: string;
+        }[];
+    } & {
+        id: string;
+        createdAt: Date;
+        startTime: string;
+        endTime: string;
+        purpose: string;
+        roomId: string;
+        userId: string;
+        startDate: Date;
+        endDate: Date | null;
+        pattern: import(".prisma/client").$Enums.RecurringPattern;
+        daysOfWeek: import("@prisma/client/runtime/library").JsonValue | null;
+    })[]>;
+    findOne(id: string): Promise<{
+        user: {
+            id: string;
+            username: string;
+            password: string;
+            fullName: string;
+            studentId: string | null;
+            teacherId: string | null;
+            department: string | null;
+            year: number | null;
+            role: import(".prisma/client").$Enums.Role;
+            isActive: boolean;
+            noShowCount: number;
+            isSuspended: boolean;
+            suspendedUntil: Date | null;
+            createdAt: Date;
+        };
+        room: {
+            name: string;
+            id: string;
+            isActive: boolean;
+            type: import(".prisma/client").$Enums.RoomType;
+            capacity: number;
+            equipment: import("@prisma/client/runtime/library").JsonValue | null;
+            floor: number | null;
+            building: string | null;
+            description: string | null;
+            openTime: string | null;
+            closeTime: string | null;
+            maxBookingHours: number | null;
+            advanceBookingDays: number | null;
+            requireApproval: boolean;
+        };
+        bookings: {
+            id: string;
+            createdAt: Date;
+            date: Date;
+            startTime: Date;
+            endTime: Date;
+            purpose: string;
+            attendees: number;
+            status: import(".prisma/client").$Enums.BookingStatus;
+            adminNote: string | null;
+            checkInTime: Date | null;
+            checkOutTime: Date | null;
+            isNoShow: boolean;
+            updatedAt: Date;
+            roomId: string;
+            recurringBookingId: string | null;
+            userId: string;
+        }[];
+    } & {
+        id: string;
+        createdAt: Date;
+        startTime: string;
+        endTime: string;
+        purpose: string;
+        roomId: string;
+        userId: string;
+        startDate: Date;
+        endDate: Date | null;
+        pattern: import(".prisma/client").$Enums.RecurringPattern;
+        daysOfWeek: import("@prisma/client/runtime/library").JsonValue | null;
+    }>;
+    update(id: string, data: any): Promise<{
+        id: string;
+        createdAt: Date;
+        startTime: string;
+        endTime: string;
+        purpose: string;
+        roomId: string;
+        userId: string;
+        startDate: Date;
+        endDate: Date | null;
+        pattern: import(".prisma/client").$Enums.RecurringPattern;
+        daysOfWeek: import("@prisma/client/runtime/library").JsonValue | null;
+    }>;
+    remove(id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        startTime: string;
+        endTime: string;
+        purpose: string;
+        roomId: string;
+        userId: string;
+        startDate: Date;
+        endDate: Date | null;
+        pattern: import(".prisma/client").$Enums.RecurringPattern;
+        daysOfWeek: import("@prisma/client/runtime/library").JsonValue | null;
+    }>;
+}

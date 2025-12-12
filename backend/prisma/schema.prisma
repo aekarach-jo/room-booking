@@ -1,0 +1,235 @@
+// backend/prisma/schema.prisma
+
+// 1. Update User model
+model User {
+  id       String @id @default(cuid())
+  username String @unique
+  password String
+  fullName String
+
+  // Role-specific IDs
+  studentId String? // สำหรับ STUDENT
+  teacherId String? // ใหม่ - สำหรับ TEACHER
+
+  // Additional Info
+  department String? // ใหม่ - ภาควิชา/สาขา
+  year       Int? // ใหม่ - ชั้นปี (1-4) สำหรับ STUDENT
+
+  role     Role    @default(STUDENT)
+  isActive Boolean @default(true) // ใหม่
+
+  // No-show tracking
+  noShowCount    Int       @default(0) // ใหม่
+  isSuspended    Boolean   @default(false) // ใหม่
+  suspendedUntil DateTime? // ใหม่
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  bookings          Booking[]
+  recurringBookings RecurringBooking[] // ใหม่
+  notifications     Notification[] // ใหม่
+  announcements     Announcement[] // ใหม่
+}
+
+// 2. Update Role enum
+enum Role {
+  STUDENT // เดิมคือ USER
+  TEACHER // ใหม่
+  STAFF // เดิมคือ ADMIN
+  DEPARTMENT_HEAD // ใหม่
+}
+
+// 3. Update Room model
+model Room {
+  id          String   @id @default(cuid())
+  name        String
+  type        RoomType @default(LECTURE) // ใหม่
+  floor       Int? // ใหม่
+  building    String? // ใหม่
+  capacity    Int
+  equipment   Json? // ["projector", "ac", "whiteboard"]
+  description String? // ใหม่
+
+  // Availability
+  openTime  String? @default("08:00") // ใหม่
+  closeTime String? @default("20:00") // ใหม่
+  isActive  Boolean @default(true)
+
+  // Booking Rules
+  maxBookingHours    Int?    @default(3) // ใหม่
+  advanceBookingDays Int?    @default(7) // ใหม่
+  requireApproval    Boolean @default(true) // ใหม่
+
+  // Relations
+  bookings          Booking[]
+  recurringBookings RecurringBooking[] // ใหม่
+  maintenances      RoomMaintenance[] // ใหม่
+}
+
+// 4. New RoomType enum
+enum RoomType {
+  LECTURE // ห้องบรรยาย
+  COMPUTER_LAB // ห้องคอมพิวเตอร์
+  LABORATORY // ห้องปฏิบัติการ
+  MEETING // ห้องประชุม
+  STUDY // ห้องสมุดย่อย
+}
+
+// 5. Update Booking model
+model Booking {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  roomId String
+  room   Room   @relation(fields: [roomId], references: [id])
+
+  date      DateTime
+  startTime DateTime
+  endTime   DateTime
+  purpose   String
+  attendees Int
+
+  status    BookingStatus @default(PENDING)
+  adminNote String?
+
+  // Check-in tracking
+  checkInTime  DateTime? // ใหม่
+  checkOutTime DateTime? // ใหม่
+  isNoShow     Boolean   @default(false) // ใหม่
+
+  // Recurring booking
+  recurringBookingId String? // ใหม่
+  recurringBooking   RecurringBooking? @relation(fields: [recurringBookingId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+// 6. New RecurringBooking model
+model RecurringBooking {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  roomId String
+  room   Room   @relation(fields: [roomId], references: [id])
+
+  startDate DateTime
+  endDate   DateTime?
+
+  pattern    RecurringPattern // DAILY, WEEKLY, CUSTOM
+  daysOfWeek Json? // [1,3,5] = จันทร์, พุธ, ศุกร์
+
+  startTime String
+  endTime   String
+  purpose   String
+
+  createdAt DateTime @default(now())
+
+  // Generated bookings
+  bookings Booking[]
+}
+
+enum RecurringPattern {
+  DAILY
+  WEEKLY
+  CUSTOM
+}
+
+// 7. New RoomMaintenance model
+model RoomMaintenance {
+  id        String   @id @default(cuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  startDate DateTime
+  endDate   DateTime
+  reason    String
+  createdAt DateTime @default(now())
+}
+
+// 8. New Semester model
+model Semester {
+  id           String        @id @default(cuid())
+  name         String // "เทอม 1/2025"
+  startDate    DateTime
+  endDate      DateTime
+  isActive     Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  specialDates SpecialDate[]
+}
+
+// 9. New SpecialDate model
+model SpecialDate {
+  id          String          @id @default(cuid())
+  name        String // "สอบกลางภาค"
+  date        DateTime
+  type        SpecialDateType
+  description String?
+  semesterId  String?
+  semester    Semester?       @relation(fields: [semesterId], references: [id])
+}
+
+enum SpecialDateType {
+  HOLIDAY // วันหยุด - ปิดทั้งหมด
+  EXAM // วันสอบ - บางห้องปิด
+  EVENT // งานพิเศษ - block booking
+}
+
+// 10. New Notification model
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  type    NotificationType
+  title   String
+  message String
+
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+enum NotificationType {
+  BOOKING_APPROVED
+  BOOKING_REJECTED
+  BOOKING_REMINDER
+  BOOKING_CANCELLED
+  ROOM_MAINTENANCE
+  ANNOUNCEMENT
+}
+
+// 11. New Announcement model
+model Announcement {
+  id          String           @id @default(cuid())
+  title       String
+  content     String
+  type        AnnouncementType @default(INFO)
+  isPinned    Boolean          @default(false)
+  publishDate DateTime         @default(now())
+  expiryDate  DateTime?
+  createdBy   String
+  creator     User             @relation(fields: [createdBy], references: [id])
+  createdAt   DateTime         @default(now())
+}
+
+enum AnnouncementType {
+  INFO // ข่าวสาร
+  WARNING // คำเตือน
+  URGENT // เร่งด่วน
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}

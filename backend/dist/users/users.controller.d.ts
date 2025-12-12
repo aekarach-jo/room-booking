@@ -1,0 +1,70 @@
+import { UsersService } from './users.service';
+import { Prisma } from '@prisma/client';
+export declare class UsersController {
+    private readonly usersService;
+    constructor(usersService: UsersService);
+    findAll(): Promise<{
+        id: string;
+        username: string;
+        password: string;
+        fullName: string;
+        studentId: string | null;
+        teacherId: string | null;
+        department: string | null;
+        year: number | null;
+        role: import(".prisma/client").$Enums.Role;
+        isActive: boolean;
+        noShowCount: number;
+        isSuspended: boolean;
+        suspendedUntil: Date | null;
+        createdAt: Date;
+    }[]>;
+    findById(id: string): Promise<{
+        id: string;
+        username: string;
+        password: string;
+        fullName: string;
+        studentId: string | null;
+        teacherId: string | null;
+        department: string | null;
+        year: number | null;
+        role: import(".prisma/client").$Enums.Role;
+        isActive: boolean;
+        noShowCount: number;
+        isSuspended: boolean;
+        suspendedUntil: Date | null;
+        createdAt: Date;
+    }>;
+    updateUser(id: string, data: Prisma.UserUpdateInput): Promise<{
+        id: string;
+        username: string;
+        password: string;
+        fullName: string;
+        studentId: string | null;
+        teacherId: string | null;
+        department: string | null;
+        year: number | null;
+        role: import(".prisma/client").$Enums.Role;
+        isActive: boolean;
+        noShowCount: number;
+        isSuspended: boolean;
+        suspendedUntil: Date | null;
+        createdAt: Date;
+    }>;
+    deleteUser(id: string): Promise<{
+        id: string;
+        username: string;
+        password: string;
+        fullName: string;
+        studentId: string | null;
+        teacherId: string | null;
+        department: string | null;
+        year: number | null;
+        role: import(".prisma/client").$Enums.Role;
+        isActive: boolean;
+        noShowCount: number;
+        isSuspended: boolean;
+        suspendedUntil: Date | null;
+        createdAt: Date;
+    }>;
+}
