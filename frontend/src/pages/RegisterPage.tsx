@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { authService } from '../services/auth.service';
-import { Moon, Sun, UserPlus } from 'lucide-react';
+import { Moon, Sun, UserPlus, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
 
 const RegisterPage = () => {
   const [username, setUsername] = useState('');
@@ -10,122 +15,151 @@ const RegisterPage = () => {
   const [fullName, setFullName] = useState('');
   const [studentId, setStudentId] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
     try {
       await authService.register(username, password, fullName, studentId);
       navigate('/login');
     } catch (err) {
-      setError('Failed to register. Please try again.');
+      setError('ไม่สามารถสมัครสมาชิกได้ กรุณาลองใหม่อีกครั้ง');
       console.error(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background py-12 px-4">
-      {/* Theme Toggle Button - Top Right */}
-      <button
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-background to-muted/20 relative overflow-hidden py-12 px-4">
+      {/* Decorative elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
+      </div>
+
+      {/* Theme Toggle Button */}
+      <Button
         onClick={toggleTheme}
-        className="absolute top-6 right-6 p-3 rounded-lg bg-card border border-border hover:bg-accent transition-colors"
+        variant="outline"
+        size="icon"
+        className="absolute top-6 right-6 rounded-full shadow-lg z-10"
         aria-label="Toggle theme"
       >
         {theme === 'dark' ? (
-          <Sun className="w-5 h-5 text-foreground" />
+          <Sun className="w-5 h-5" />
         ) : (
-          <Moon className="w-5 h-5 text-foreground" />
+          <Moon className="w-5 h-5" />
         )}
-      </button>
+      </Button>
 
-      <div className="w-full max-w-md p-8 space-y-6 bg-card rounded-xl shadow-lg border border-border">
+      <div className="w-full max-w-md p-8 space-y-6 bg-card rounded-2xl shadow-2xl border border-border/50 backdrop-blur-sm z-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {/* Logo & Title */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-            <UserPlus className="w-8 h-8 text-primary" />
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-primary/70 shadow-lg mb-4 animate-in zoom-in duration-300 delay-100">
+            <UserPlus className="w-10 h-10 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">สมัครสมาชิก</h1>
-          <p className="text-muted-foreground">สร้างบัญชีใหม่เพื่อใช้งานระบบ</p>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">สมัครสมาชิก</h1>
+          <p className="text-muted-foreground text-sm">สร้างบัญชีใหม่เพื่อใช้งานระบบ</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="p-3 text-sm text-destructive-foreground bg-destructive/10 border border-destructive/20 rounded-lg">
-              {error}
-            </div>
+            <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2 duration-300">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-foreground">ชื่อผู้ใช้</label>
-            <input
+            <Label htmlFor="username">ชื่อผู้ใช้</Label>
+            <Input
+              id="username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-2.5 bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
               placeholder="กรอกชื่อผู้ใช้"
+              disabled={isLoading}
               required
+              className="h-11"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-foreground">รหัสผ่าน</label>
-            <input
+            <Label htmlFor="password">รหัสผ่าน</Label>
+            <Input
+              id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
               placeholder="กรอกรหัสผ่าน"
+              disabled={isLoading}
               required
+              className="h-11"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-foreground">ชื่อ-นามสกุล</label>
-            <input
+            <Label htmlFor="fullName">ชื่อ-นามสกุล</Label>
+            <Input
+              id="fullName"
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full px-4 py-2.5 bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
               placeholder="กรอกชื่อ-นามสกุล"
+              disabled={isLoading}
               required
+              className="h-11"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-foreground">
+            <Label htmlFor="studentId">
               รหัสนักศึกษา <span className="text-muted-foreground text-xs">(ไม่จำเป็น)</span>
-            </label>
-            <input
+            </Label>
+            <Input
+              id="studentId"
               type="text"
               value={studentId}
               onChange={(e) => setStudentId(e.target.value)}
-              className="w-full px-4 py-2.5 bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
               placeholder="กรอกรหัสนักศึกษา"
+              disabled={isLoading}
+              className="h-11"
             />
           </div>
 
-          <button
+          <Button
             type="submit"
-            className="w-full py-3 mt-2 text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg font-medium transition-colors shadow-sm"
+            className="w-full h-11 font-medium shadow-md hover:shadow-lg transition-all"
+            disabled={isLoading}
           >
-            สมัครสมาชิก
-          </button>
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                กำลังสมัครสมาชิก...
+              </>
+            ) : (
+              'สมัครสมาชิก'
+            )}
+          </Button>
         </form>
 
         <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-border"></div>
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">หรือ</span>
+          <Separator />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="bg-card px-3 text-xs text-muted-foreground uppercase">หรือ</span>
           </div>
         </div>
 
         <p className="text-sm text-center text-muted-foreground">
           มีบัญชีอยู่แล้ว?{' '}
-          <Link to="/login" className="text-primary hover:underline font-medium">
+          <Link 
+            to="/login" 
+            className="text-primary hover:underline font-medium transition-colors hover:text-primary/80"
+          >
             เข้าสู่ระบบ
           </Link>
         </p>

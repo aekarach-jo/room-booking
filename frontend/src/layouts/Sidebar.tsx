@@ -14,9 +14,14 @@ import {
   History,
   Repeat,
   Moon,
-  Sun
+  Sun,
+  GraduationCap
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 
 interface NavItemProps {
   to: string;
@@ -30,14 +35,14 @@ const NavItem = ({ to, icon, children }: NavItemProps) => {
       to={to}
       className={({ isActive }) =>
         cn(
-          "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+          "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group",
           isActive
-            ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            ? "bg-primary text-primary-foreground shadow-md"
+            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:translate-x-1"
         )
       }
     >
-      {icon}
+      <span className="transition-transform group-hover:scale-110">{icon}</span>
       <span>{children}</span>
     </NavLink>
   );
@@ -67,11 +72,18 @@ const Sidebar = () => {
   const isAdmin = isStaff || isDeptHead;
 
   return (
-    <aside className="w-64 border-r bg-card min-h-screen flex flex-col">
+    <aside className="w-64 border-r bg-card min-h-screen flex flex-col shadow-sm">
       {/* Logo/Brand */}
-      <div className="p-6 border-b">
-        <h2 className="text-xl font-bold tracking-tight">Classroom Booking</h2>
-        <p className="text-sm text-muted-foreground mt-1">ระบบจองห้องเรียน</p>
+      <div className="p-6 border-b space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg">
+            <GraduationCap className="h-6 w-6 text-primary-foreground" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold tracking-tight">Room Booking</h2>
+            <p className="text-xs text-muted-foreground">ระบบจองห้อง</p>
+          </div>
+        </div>
       </div>
 
       {/* Navigation */}
@@ -136,11 +148,13 @@ const Sidebar = () => {
       </nav>
 
       {/* Theme Toggle & User Profile */}
-      <div className="p-4 border-t space-y-3">
+      <div className="p-4 border-t space-y-3 bg-muted/5">
         {/* Theme Toggle Button */}
-        <button
+        <Button
           onClick={toggleTheme}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+          variant="outline"
+          size="sm"
+          className="w-full justify-start gap-3"
         >
           {theme === 'dark' ? (
             <>
@@ -153,16 +167,22 @@ const Sidebar = () => {
               <span>โหมดมืด</span>
             </>
           )}
-        </button>
+        </Button>
+
+        <Separator />
 
         {/* User Profile */}
-        <div className="flex items-center gap-3 px-3 py-2 rounded-md bg-muted/50">
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-semibold text-sm">
-            {user?.fullName?.charAt(0).toUpperCase()}
-          </div>
+        <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+          <Avatar className="h-10 w-10 border-2 border-primary/30">
+            <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
+              {user?.fullName?.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{user?.fullName}</p>
-            <p className="text-xs text-muted-foreground">{user?.role}</p>
+            <p className="text-sm font-semibold truncate">{user?.fullName}</p>
+            <Badge variant="secondary" className="text-xs mt-1">
+              {user?.role}
+            </Badge>
           </div>
         </div>
       </div>
